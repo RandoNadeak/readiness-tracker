@@ -412,7 +412,7 @@ details.more2{font-size:12.5px}details.more2 summary{cursor:pointer;list-style:n
 .spkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}.spk{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:8px 10px;text-align:left;color:var(--fg);display:flex;flex-direction:column;gap:2px;transition:transform .12s,box-shadow .12s}.spk:hover,.spk.on{transform:translateY(-2px);box-shadow:var(--shadow2);border-color:var(--brand2)}.spk.on{background:color-mix(in srgb,var(--brand2) 10%,var(--surface))}.spk b{font-size:12px}.spk span{font-size:11.5px;font-weight:700}
 tr.sel td{background:color-mix(in srgb,var(--brand2) 10%,transparent)}button.lnk{background:none;border:0;padding:0;color:var(--fg);text-align:left;cursor:pointer}
 
-</style>
+.rolepill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:1px 8px;border-radius:99px;margin-top:2px;background:var(--surface2);border:1px solid var(--line);color:var(--muted)}.rolepill.r9{background:#0F4A55;color:#fff;border-color:#0F4A55}.rolepill.r2{background:color-mix(in srgb,var(--brand2) 20%,var(--surface));color:var(--fg);border-color:var(--brand2)}\n</style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
  <symbol id="swmlogo" viewBox="0 0 64 64">
@@ -608,20 +608,23 @@ const me=()=>{const em=ss.get('swm_session');if(GAS){const inf=ss.get('swm_info'
 function showLogin(){$('#app').hidden=true;$('#login').hidden=false;drawArt()}
 function showApp(){const u=me();if(!u){showLogin();return}$('#login').hidden=true;$('#app').hidden=false;
   const ini=(u.nama||u.email).split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
-  $('#who').innerHTML=`<div class="avatar">${H(ini)}</div><div style="min-width:0"><div class="wn">${H(u.nama)}</div><div class="wi">${H([u.jabatan,u.instansi].filter(Boolean).join(', '))}</div></div>`;
-  $('#who').setAttribute('data-tip',`${u.nama}::${u.jabatan||''}${u.instansi?' | '+u.instansi:''}\n${u.email}`);route()}
+  $('#who').innerHTML=`<div class="avatar">${H(ini)}</div><div style="min-width:0"><div class="wn">${H(u.nama)}</div><div class="wi">${H([u.jabatan,u.instansi].filter(Boolean).join(', '))}</div><span class="rolepill r${HAK()}">${HAKN[HAK()]}</span></div>`;
+  $('#who').setAttribute('data-tip',`${u.nama}::${u.jabatan||''}${u.instansi?' | '+u.instansi:''}\n${u.email}\nHak akses: ${HAKN[HAK()]}`);const pg=$('#pvgo');if(pg)pg.hidden=!canPap();route()}
 $('#logout').onclick=()=>{ss.del('swm_session');closeM();location.hash='';authTab(false);$('#li_m').textContent='';showLogin()};
 
 const ADMIN_EMAIL='nadeak.randoku@gmail.com';
 let REGDB=null,CANREAD=false;
-const isAdmin=()=>{const u=me();return !!u&&(GAS?u.admin===true:u.email===ADMIN_EMAIL)};
+const isAdmin=()=>{const u=me();return !!u&&(GAS?(u.admin===true||+u.hak===9):u.email===ADMIN_EMAIL)};
+const HAK=()=>{const u=me();if(!u)return 0;if(isAdmin())return 9;if(!GAS)return 2;return +u.hak===2?2:1};
+const canPap=()=>HAK()>=2;
+const HAKN={9:'Admin',2:'PIC SWM-SUD',1:'Publik'};
 async function regInit(){try{if(window.claude&&claude.use){REGDB=await claude.use('db');const u=await claude.use('user');CANREAD=!!(u&&u.canEdit&&u.canEdit());if($('#app')&&!$('#app').hidden)route()}}catch(e){REGDB=null}}
 regInit();
 async function sendReg(r){try{if(!REGDB)await regInit();if(!REGDB)return false;const us=await claude.use('user');const id=us&&us.id?await us.id():null;if(!id)return false;const ref=REGDB.doc('registrasi/'+id);const sn=await ref.get();const arr=((sn.data&&sn.data())||{}).daftar||[];const k=arr.filter(x=>x.email!==r.email);k.push(r);await ref.set({daftar:k});return true}catch(e){return false}}
 function renderReg(box,rows){
-  const hd=['Email','No. HP','Nama Lengkap','Instansi','Jabatan','Waktu Daftar'];
-  const tsv=[hd.join('\t'),...rows.map(r=>[r.email,r.hp,r.nama,r.instansi,r.jabatan,r.dibuat].join('\t'))].join('\n');
-  box.innerHTML=`<div class="sub" style="margin-bottom:10px"><b class="num">${rows.length}</b> pendaftar tersimpan di Google Sheets.</div><div class="scroll2"><table class="dt"><thead><tr>${hd.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${H(r.email)}</td><td class="num">${H(r.hp)}</td><td>${H(r.nama)}</td><td>${H(r.instansi)}</td><td>${H(r.jabatan)}</td><td class="num">${H((r.dibuat||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')||'<tr><td colspan="6" class="sub">Belum ada pendaftar.</td></tr>'}</tbody></table></div><button class="btn ghost" id="cpreg" style="margin-top:10px">Salin untuk Google Sheets</button>`;
+  const hd=['Email','No. HP','Nama Lengkap','Instansi','Jabatan','Hak akses','Waktu Daftar'];
+  const tsv=[hd.join('\t'),...rows.map(r=>[r.email,r.hp,r.nama,r.instansi,r.jabatan,r.ket||'Publik',r.dibuat].join('\t'))].join('\n');
+  box.innerHTML=`<div class="sub" style="margin-bottom:10px"><b class="num">${rows.length}</b> pendaftar tersimpan di Google Sheets.</div><div class="scroll2"><table class="dt"><thead><tr>${hd.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${H(r.email)}</td><td class="num">${H(r.hp)}</td><td>${H(r.nama)}</td><td>${H(r.instansi)}</td><td>${H(r.jabatan)}</td><td><span class="rolepill r${+r.hak===9?9:+r.hak===2?2:1}">${H(r.ket||'Publik')}</span></td><td class="num">${H((r.dibuat||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')||'<tr><td colspan="7" class="sub">Belum ada pendaftar.</td></tr>'}</tbody></table></div><button class="btn ghost" id="cpreg" style="margin-top:10px">Salin untuk Google Sheets</button>`;
   $('#cpreg').onclick=async()=>{try{await navigator.clipboard.writeText(tsv);$('#cpreg').textContent='Tersalin'}catch(e){}};
 }
 async function loadReg(){
@@ -1388,6 +1391,7 @@ tentang(){
   <div class="card"><h3>Cara membaca aplikasi ini</h3><div class="cap">Seluruh angka bersumber dari isian matriks monev dan belum diverifikasi terhadap dokumen asli.</div>
    <div class="gl"><div><b>Skor 1 sampai 4</b><p>${GL.level[1]}</p></div><div><b>Tujuh dimensi</b><p>D1 Regulasi, D2 Organisasi, D3 Tata laksana, D4 SDM, D5 Keuangan, D6 Koordinasi, D7 Aset dan operasional.</p></div><div><b>Sumber dan tanggal data</b><p>REKAP DATA MONEV 4, Matriks Pemantauan Kelengkapan Data, dan 14 instrumen per lokasi. Data per 3 November 2026. Anggaran APBD belum diverifikasi ulang.</p></div></div></div>
   <div class="card"><h3>Daftar istilah</h3><div class="cap">Arahkan kursor ke istilah bergaris titik di halaman lain untuk penjelasan singkat.</div><div class="gl">${['gerbang','go','gobers','nogo','belum','tahap','kel','uptd','blud','pokja','nokes','offtaker','rdf','tpst','ica','dok','perkada'].map(k=>`<div><b>${GL[k][0]}</b><p>${GL[k][1]}</p></div>`).join('')}</div></div>
+  <div class="card"><h3>Hak akses pengguna</h3><div class="cap">Ditentukan oleh kolom Hak User pada database pengguna (Google Sheets). Hak Anda saat ini: <b>${HAKN[HAK()]}</b>.</div><div class="scroll"><table class="dt" style="min-width:520px"><thead><tr><th>Hak User</th><th>Keterangan</th><th>Menu yang dapat dibuka</th></tr></thead><tbody><tr><td class="num">9</td><td><span class="rolepill r9">Admin</span></td><td>Semua menu, termasuk Data Pendaftar dan Paparan</td></tr><tr><td class="num">2</td><td><span class="rolepill r2">PIC SWM-SUD</span></td><td>Semua menu kecuali Data Pendaftar</td></tr><tr><td class="num">1 atau kosong</td><td><span class="rolepill r1">Publik</span></td><td>Semua menu kecuali Data Pendaftar dan Paparan</td></tr></tbody></table></div></div>
   <div class="card"><h3>Akun dan data</h3><p class="sub">Pendaftaran dan login diproses oleh server (Google Apps Script). Data pengguna tersimpan otomatis di Google Sheets pada Google Drive pemilik, dan kata sandi disimpan sebagai hash bergaram, bukan teks biasa.</p></div>`;
 }
 };
@@ -1505,7 +1509,7 @@ const PVIC={play:'<path d="M7 5v14l12-7z"/>',prev:'<path d="M15 5l-7 7 7 7"/>',n
 async function loadPap(){
   if(PAP)return PAP;
   if(!GAS)throw new Error('Data paparan tidak tersedia pada mode ini.');
-  if(window.SWM_API){const x=await fetch('paparan.json',{cache:'no-cache'});if(!x.ok)throw new Error('paparan.json tidak ditemukan ('+x.status+')');PAP=await x.json();return PAP}
+  if(!canPap())throw new Error('Akses ditolak. Menu Paparan hanya untuk PIC SWM-SUD dan Admin.');
   const r=await gasCall('getPaparan',ss.get('swm_token'));
   if(typeof r!=='string')PAP=r;
   else{
@@ -1676,8 +1680,8 @@ addEventListener('keydown',e=>{
 /* ---------- nav and routing ---------- */
 function route(){
   if(!me()){showLogin();return}
-  let k=(location.hash||'#ringkasan').slice(1).split('/')[0];if(!VIEWS[k]||(k==='pendaftar'&&!isAdmin()))k='ringkasan';
-  $('#nav').innerHTML=GROUPS.map(([g,ids])=>`<div class="navlabel">${g}</div>`+ids.filter(id=>id!=='pendaftar'||isAdmin()).map(id=>`<button data-go="${id}" ${id===k?'aria-current="page"':''}${T(PAGES[id][0]+'::'+PAGES[id][1])}><svg viewBox="0 0 24 24" aria-hidden="true">${PAGES[id][2]}</svg>${PAGES[id][0]}</button>`).join('')).join('');
+  let k=(location.hash||'#ringkasan').slice(1).split('/')[0];if(!VIEWS[k]||(k==='pendaftar'&&!isAdmin())||(k==='paparan'&&!canPap()))k='ringkasan';
+  $('#nav').innerHTML=GROUPS.filter(([g,ids])=>ids.some(id=>(id!=='pendaftar'||isAdmin())&&(id!=='paparan'||canPap()))).map(([g,ids])=>`<div class="navlabel">${g}</div>`+ids.filter(id=>(id!=='pendaftar'||isAdmin())&&(id!=='paparan'||canPap())).map(id=>`<button data-go="${id}" ${id===k?'aria-current="page"':''}${T(PAGES[id][0]+'::'+PAGES[id][1])}><svg viewBox="0 0 24 24" aria-hidden="true">${PAGES[id][2]}</svg>${PAGES[id][0]}</button>`).join('')).join('');
   $('#ttl').textContent=PAGES[k][0];$('#crumb').textContent='| '+PAGES[k][1];
   const v=$('#view');v.style.animation='none';v.offsetHeight;v.style.animation='';
   v.innerHTML=VIEWS[k]();hideTip();
